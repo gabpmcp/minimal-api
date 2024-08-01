@@ -12,7 +12,7 @@ La clase `TwoLevelCache` implementa una caché de dos niveles utilizando un dicc
 
 Utilizamos currificación para la función BuildCommand para permitir una invocación secuencial de parámetros en diferentes momentos.
 
-## Composición de Funciones:
+### Composición de Funciones:
 
 Se utilizan funciones de alto orden para componer comportamientos específicos de serialización, deserialización y obtención de datos. Esto permite que la lógica de la caché sea flexible y extensible.
 
