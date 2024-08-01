@@ -9,7 +9,7 @@ namespace MinimalApi.Validations
         public ValidationResult(bool isValid, string errorMessage)
             : this(isValid, [errorMessage]) { }
 
-        public static ValidationResult Success => new ValidationResult(true, new List<string>());
+        public static ValidationResult Success => new(true, []);
 
         public ValidationResult Combine(ValidationResult other)
         {
