@@ -28,18 +28,19 @@ namespace MinimalApi.CQRS
 
     public static class Commands
     {
-        public static Command CreateItem(Guid id, string name, decimal price) =>
+        public static Command CreateItem(string productId, string status, string name, decimal price) =>
             new("CreateItem", new()
             {
-                ["Id"] = id,
+                ["Id"] = productId,
+                ["Status"] = status,
                 ["Name"] = name,
                 ["Price"] = price
             });
 
-        public static Command UpdateItem(Guid id, string name, decimal price) =>
+        public static Command UpdateItem(string productId, string name, decimal price) =>
             new("UpdateItem", new()
             {
-                ["Id"] = id,
+                ["Id"] = productId,
                 ["Name"] = name,
                 ["Price"] = price
             });
@@ -56,26 +57,26 @@ namespace MinimalApi.CQRS
 
     public static class Events
     {
-        public static Event ItemCreated(Guid id, string name, decimal price) =>
+        public static Event ItemCreated(string productId, string name, decimal price) =>
             new("CreateItem", new()
             {
-                ["Id"] = id,
+                ["Id"] = productId,
                 ["Name"] = name,
                 ["Price"] = price
             });
 
-        public static Event ItemUpdated(Guid id, string name, decimal price) =>
+        public static Event ItemUpdated(string productId, string name, decimal price) =>
             new("UpdateItem", new()
             {
-                ["Id"] = id,
+                ["Id"] = productId,
                 ["Name"] = name,
                 ["Price"] = price
             });
         
-        public static Event ItemFetched(Guid id, string name, decimal price) =>
+        public static Event ItemFetched(string productId, string name, decimal price) =>
             new("UpdateItem", new()
             {
-                ["Id"] = id,
+                ["Id"] = productId,
                 ["Name"] = name,
                 ["Price"] = price
             });

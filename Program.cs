@@ -4,6 +4,7 @@ using MinimalApi.CQRS;
 using MinimalApi.Validations;
 using MinimalApi.Helpers;
 using MinimalApi.IO.Cache;
+using Microsoft.Identity.Client.Extensions.Msal;
 
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
@@ -31,8 +32,8 @@ app.MapMethods("/products", new[] { "POST", "PUT", "GET" }, async (HttpContext c
     var method = context.Request.Method;
     Command command = method switch
     {
-        "POST" => await BuildCommand(postData => Commands.CreateItem(Guid.NewGuid(), postData["Name"].ToString(), Convert.ToDecimal(postData["Price"]))),
-        "PUT" => await BuildCommand(postData => Commands.UpdateItem(Guid.NewGuid(), postData["Name"].ToString(), Convert.ToDecimal(postData["Price"]))),
+        "POST" => await BuildCommand(postData => Commands.CreateItem(postData["ProductId"].ToString(), postData["Status"].ToString(), postData["Name"].ToString(), Convert.ToDecimal(postData["Price"]))),
+        "PUT" => await BuildCommand(postData => Commands.UpdateItem(postData["ProductId"].ToString(), postData["Name"].ToString(), Convert.ToDecimal(postData["Price"]))),
         "GET" => await BuildCommand(postData =>
         {
             var id = Guid.Parse(context.Request.Query["id"].ToString() ?? string.Empty);
@@ -49,12 +50,13 @@ app.MapMethods("/products", new[] { "POST", "PUT", "GET" }, async (HttpContext c
     }
 
     var redis = new RedisCache<string>("lsakdaslkdsadolk");
-
+    
     return command switch
     {
-        { Kind: "Insert" } => InsertedProduct(redis.GetDistributedValue, redis.SetDistributedValue, content => content, JsonSerialization.Serialize, command),
-        { Kind: "Update" } => UpdatedProduct(command, redis.GetDistributedValue, redis.SetDistributedValue, JsonSerialization.Serialize),
-        { Kind: "GetById" } => FetchedCommand(command, redis.SetDistributedValue, JsonSerialization.Serialize),
+        { Kind: "Insert" } => InsertedProduct(redis.GetDistributedValue, redis.SetDistributedValue, content => content, JsonSerialization.Serialize, EventStore.SaveEventAsync,
+        command.GetData<string>("Id"), command.GetData<string>("Status"), command.GetData<string>("Name"), command.GetData<decimal>("Price")),
+        { Kind: "Update" } => UpdatedProduct(redis.GetDistributedValue, redis.SetDistributedValue, JsonSerialization.Serialize, EventStore.SaveEventAsync, command),
+        { Kind: "GetById" } => FetchedCommand(command, redis.GetDistributedValue),
         { Kind: "UnsupportedCommand" } => Results.BadRequest("Unsupported command!"),
         _ => Results.BadRequest("Invalid command")
     };
@@ -68,7 +70,7 @@ static async Task<IResult> InsertedProduct(
     Func<string, string, object, Task<EventRecord>> persistEvent,
     string productId, string status, string name, decimal price)
 {
-    var cache = new TwoLevelCache<string, string>();
+    var cache = TwoLevelCache<string, string>.Instance;
 
     // Check if the product already exists in the cache
     var productStatus = await cache.GetAsync(status, () => Task.FromResult(status), getDistributedValue, setDistributedValue, deserializeDistributedValue, serializeNewProduct);
@@ -76,23 +78,32 @@ static async Task<IResult> InsertedProduct(
         return Results.Conflict("Product status already exists");
     
     // Create and persist the event using the HOF
-    var @event = Events.ItemCreated(Guid.NewGuid(), productStatus ?? status, price);
-    var persitedEvent = await persistEvent(productId, "ItemCreated", @event);
+    var @event = Events.ItemCreated(productId, productStatus ?? status, price);
+    var persitedEvent = await persistEvent(productId, @event.Kind, @event);
 
     return Results.Ok(@event);
 }
 
-async Task<IResult> UpdatedProduct(Command command, Func<Guid, (bool, string)> getDistributedValue, Func<Guid, string, Task<bool>> setDistributedValue, Func<object, string> serialize)
+static async Task<IResult> UpdatedProduct(
+    Func<string, (bool, string)> getDistributedValue,
+    Func<string, string, Task<bool>> setDistributedValue,
+    Func<object, string> serialize,
+    Func<string, string, object, Task<EventRecord>> persistEvent,
+    Command command)
 {
-    var id = command.GetData<Guid>("Id");
-    if (products.ContainsKey(id))
+    var productId = command.GetData<string>("Id");
+    var status = command.GetData<string>("Status");
+    if (products.ContainsKey(productId))
     {
         var name = command.GetData<string>("Name");
         var price = command.GetData<decimal>("Price");
-        products[id] = (name, price);
-        var cache = new TwoLevelCache<Guid, (string Name, decimal Price)>();
-        await cache.SetAsync(id, (name, price), getDistributedValue, setDistributedValue, JsonSerialization.Deserialize<(string Name, decimal Price)>, serialize);
-        var @event = Events.ItemUpdated(id, name, price);
+        products[productId] = (name, price);
+        var cache = TwoLevelCache<string, string>.Instance;
+        await cache.SetAsync(status, command.GetData<string>("Status"), setDistributedValue, serialize);
+        
+        var @event = Events.ItemUpdated(productId, name, price);
+        var persitedEvent = await persistEvent(productId, @event.Kind, @event);
+        
         return Results.Ok(@event);
     }
     else
@@ -101,13 +112,14 @@ async Task<IResult> UpdatedProduct(Command command, Func<Guid, (bool, string)> g
     }
 }
 
-IResult FetchedCommand(Command command, Func<Guid, (bool, string)> getDistributedValue, Func<string, (string Name, decimal Price)> deserialize)
+static async Task<IResult> FetchedCommand(Func<string, (bool, string)> getDistributedValue, Func<string, string, object, Task<EventRecord>> persistEvent, Command command)
 {
-    var id = command.GetData<Guid>("Id");
+    var productId = command.GetData<string>("Id");
     if (products.ContainsKey(id))
     {
         var product = products[id];
-        var @event = Events.ItemFetched(id, product.Name, product.Price);
+        var @event = Events.ItemFetched(productId, product.Name, product.Price);
+        var persitedEvent = await persistEvent(productId, @event.Kind, @event);
         return Results.Ok(@event);
     }
     else

@@ -31,7 +31,7 @@ namespace MinimalApi.Helpers
 
     public static class EventStore
     {
-        public static async Task<EventRecord> SaveEventAsync(string eventType, string productId, object eventData)
+        public static async Task<EventRecord> SaveEventAsync(string productId, string eventType, object eventData)
         {
             var eventToSave = new EventRecord(Guid.NewGuid(), productId, eventType, DateTimeOffset.UtcNow, JsonConvert.SerializeObject(eventData));
             using var context = new EventStoreContext();

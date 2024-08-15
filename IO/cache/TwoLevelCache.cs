@@ -6,9 +6,22 @@ using Newtonsoft.Json;
 using MinimalApi.Business;
 
 namespace MinimalApi.IO.Cache {
-    public class TwoLevelCache<TKey, TValue>
+    public class TwoLevelCache<TKey, TValue> where TKey : notnull
     {
+        // La única instancia de TwoLevelCache
+        private static readonly Lazy<TwoLevelCache<TKey, TValue>> _instance =
+            new(() => new TwoLevelCache<TKey, TValue>());
+
+        // Propiedad estática para acceder a la instancia
+        public static TwoLevelCache<TKey, TValue> Instance => _instance.Value;
+
         private readonly ConcurrentDictionary<TKey, TValue> _localCache = new();
+
+        // Constructor privado para evitar instancias adicionales
+        private TwoLevelCache()
+        {
+            _localCache = new ConcurrentDictionary<TKey, TValue>();
+        }
 
         public async Task<TValue> GetAsync(
             TKey key,
