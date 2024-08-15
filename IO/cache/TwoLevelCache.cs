@@ -8,7 +8,7 @@ using MinimalApi.Business;
 namespace MinimalApi.IO.Cache {
     public class TwoLevelCache<TKey, TValue>
     {
-        private readonly ConcurrentDictionary<TKey, TValue> _localCache = new ConcurrentDictionary<TKey, TValue>();
+        private readonly ConcurrentDictionary<TKey, TValue> _localCache = new();
 
         public async Task<TValue> GetAsync(
             TKey key,

@@ -10,13 +10,12 @@ namespace MinimalApi.CQRS
 
         public ValidationResult Validate(Dictionary<string, List<Validator>> schema)
         {
-            if (!schema.ContainsKey(Kind))
+            if (!schema.TryGetValue(Kind, out List<Validator>? value))
             {
                 return new ValidationResult(false, $"No schema found for kind: {Kind}");
             }
 
-            return schema[Kind]
-                .AsParallel()
+            return value.AsParallel()
                 .Select(validator => validator(Data))
                 .Aggregate(ValidationResult.Success, (current, result) => current.Combine(result));
         }
@@ -66,6 +65,14 @@ namespace MinimalApi.CQRS
             });
 
         public static Event ItemUpdated(Guid id, string name, decimal price) =>
+            new("UpdateItem", new()
+            {
+                ["Id"] = id,
+                ["Name"] = name,
+                ["Price"] = price
+            });
+        
+        public static Event ItemFetched(Guid id, string name, decimal price) =>
             new("UpdateItem", new()
             {
                 ["Id"] = id,

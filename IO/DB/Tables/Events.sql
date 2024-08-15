@@ -1,0 +1,9 @@
+CREATE TABLE Events (
+    Id UNIQUEIDENTIFIER PRIMARY KEY,
+    ProductId NVARCHAR(100),
+    EventType NVARCHAR(100),
+    Timestamp DATETIMEOFFSET,
+    Data NVARCHAR(MAX)
+);
+
+CREATE INDEX IDX_ProductId ON Events (ProductId);
