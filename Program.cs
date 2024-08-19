@@ -40,7 +40,7 @@ app.MapMethods("/products", new[] { "POST", "PUT", "GET" }, async (HttpContext c
             return Commands.GetById(id);
         }),
         _ => await Task.FromResult(new Command("UnsupportedCommand", []))
-    };
+    }
 
     var result = command.Validate(Validations.commandSchemas);
 
@@ -59,8 +59,8 @@ app.MapMethods("/products", new[] { "POST", "PUT", "GET" }, async (HttpContext c
         { Kind: "GetById" } => FetchedCommand(command, redis.GetDistributedValue),
         { Kind: "UnsupportedCommand" } => Results.BadRequest("Unsupported command!"),
         _ => Results.BadRequest("Invalid command")
-    };
-});
+    }
+})
 
 static async Task<IResult> InsertedProduct(
     Func<string, (bool, string)> getDistributedValue,
@@ -131,6 +131,6 @@ static async Task<IResult> FetchedCommand(Func<string, (bool, string)> getDistri
 app.MapGet("/events/{productId}", async (string productId, DateTimeOffset startDate, DateTimeOffset endDate) =>
 {
     return await FetchedEventsForProduct(productId, startDate, endDate);
-});
+})
 
 app.Run();
